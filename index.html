@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAO Memory Training</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #fff; --text: #1d2130; --muted: #6b7185; --line: #e2e5ee;
+    --accent: #4f5bd5; --accent-text: #fff; --ok: #1f9d55; --bad: #d64545; --warn: #c98a12;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141c; --card: #1b1e29; --text: #e8eaf2; --muted: #9aa0b5; --line: #2c3040;
+      --accent: #7c86ff; --accent-text: #0e1020; --ok: #4ccb84; --bad: #ff6b6b; --warn: #f0b440;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.5rem; margin: 8px 0 16px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  nav button { flex: 1; min-width: 140px; }
+  button { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--card); color: var(--text); cursor: pointer; }
+  button.primary, nav button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+                  background: var(--bg); color: var(--text); width: 100%; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  .row > label { flex: 1; min-width: 120px; font-size: .85rem; color: var(--muted); }
+  .big { font-size: 4rem; font-weight: 700; text-align: center; letter-spacing: .05em; margin: 8px 0; font-variant-numeric: tabular-nums; }
+  .cue { font-size: 1.8rem; font-weight: 600; text-align: center; margin: 12px 0; }
+  .cue small { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .pairs { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font-size: 2.6rem; font-weight: 700;
+           font-variant-numeric: tabular-nums; margin: 12px 0; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  @media (max-width: 520px) { .grid3 { grid-template-columns: 1fr; } .big { font-size: 3rem; } }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .result { margin-top: 12px; min-height: 1.5em; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .stats { display: flex; gap: 16px; flex-wrap: wrap; font-size: .9rem; color: var(--muted); }
+  .stats b { color: var(--text); }
+  .countdown { text-align: center; font-size: 1.2rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 6px; margin: 2px; font-variant-numeric: tabular-nums;
+          border: 1px solid var(--line); }
+  .chip.ok { border-color: var(--ok); } .chip.bad { border-color: var(--bad); }
+  .hidden { display: none !important; }
+  .banner { background: var(--card); border: 1px solid var(--warn); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PAO Memory Training</h1>
+  <div id="paoBanner" class="banner hidden"></div>
+
+  <nav>
+    <button data-tab="toPao" class="active">Number → PAO</button>
+    <button data-tab="toNum">PAO → Number</button>
+    <button data-tab="recall">Memorize</button>
+  </nav>
+
+  <!-- 1. Number -> PAO -->
+  <section id="toPao">
+    <div class="card">
+      <div class="row">
+        <label>From <input id="p_from" type="number" min="0" max="99"></label>
+        <label>To <input id="p_to" type="number" min="0" max="99"></label>
+        <label>Ask for
+          <select id="p_ask">
+            <option value="all">Person + Action + Object</option>
+            <option value="person">Person only</option>
+            <option value="action">Action only</option>
+            <option value="object">Object only</option>
+          </select>
+        </label>
+        <label>Order
+          <select id="p_order"><option value="weak">Focus on weak</option><option value="random">Random</option><option value="seq">Sequential</option></select>
+        </label>
+      </div>
+    </div>
+    <div class="card">
+      <div class="big" id="p_num">--</div>
+      <form id="p_form">
+        <div class="grid3">
+          <input id="p_person" placeholder="Person" autocomplete="off">
+          <input id="p_action" placeholder="Action" autocomplete="off">
+          <input id="p_object" placeholder="Object" autocomplete="off">
+        </div>
+        <div class="actions">
+          <button class="primary" type="submit" id="p_check">Check</button>
+          <button type="button" id="p_reveal">Reveal</button>
+          <button type="button" id="p_next">Next</button>
+        </div>
+      </form>
+      <div class="result" id="p_result"></div>
+      <div class="actions hidden" id="p_self">
+        <span class="muted">No PAO saved for this number. Did you know it?</span>
+        <button type="button" data-self="1">Knew it</button>
+        <button type="button" data-self="0">Didn't</button>
+      </div>
+    </div>
+    <div class="card"><div class="stats" id="p_stats"></div></div>
+  </section>
+
+  <!-- 2. PAO -> Number -->
+  <section id="toNum" class="hidden">
+    <div class="card">
+      <div class="row">
+        <label>From <input id="n_from" type="number" min="0" max="99"></label>
+        <label>To <input id="n_to" type="number" min="0" max="99"></label>
+        <label>Show
+          <select id="n_show">
+            <option value="mixed">Person, Action or Object (mixed)</option>
+            <option value="person">Person</option>
+            <option value="action">Action</option>
+            <option value="object">Object</option>
+            <option value="triple">P + A + O story (6 digits)</option>
+          </select>
+        </label>
+        <label>Order
+          <select id="n_order"><option value="weak">Focus on weak</option><option value="random">Random</option></select>
+        </label>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cue" id="n_cue">--</div>
+      <form id="n_form">
+        <input id="n_answer" inputmode="numeric" autocomplete="off" placeholder="Number">
+        <div class="actions">
+          <button class="primary" type="submit">Check</button>
+          <button type="button" id="n_next">Next</button>
+        </div>
+      </form>
+      <div class="result" id="n_result"></div>
+    </div>
+    <div class="card"><div class="stats" id="n_stats"></div></div>
+  </section>
+
+  <!-- 3. Memorize -->
+  <section id="recall" class="hidden">
+    <div class="card">
+      <div class="row">
+        <label>Pairs <input id="r_count" type="number" min="1" max="50"></label>
+        <label>Show (sec) <input id="r_show" type="number" min="1" max="600" step="0.5"></label>
+        <label>Wait (sec) <input id="r_wait" type="number" min="0" max="600" step="0.5"></label>
+      </div>
+      <div class="actions"><button class="primary" id="r_start">Start</button></div>
+    </div>
+    <div class="card hidden" id="r_stage">
+      <div class="pairs" id="r_pairs"></div>
+      <div class="countdown" id="r_countdown"></div>
+      <form id="r_form" class="hidden">
+        <input id="r_answer" inputmode="numeric" autocomplete="off" placeholder="Type the pairs, e.g. 07 42 19 or 074219">
+        <div class="actions"><button class="primary" type="submit">Check</button></div>
+      </form>
+      <div class="result" id="r_result"></div>
+    </div>
+    <div class="card">
+      <div class="stats" id="r_stats"></div>
+      <table id="r_history"></table>
+      <div class="actions"><button type="button" id="r_clear">Clear history</button></div>
+    </div>
+  </section>
+
+  <p class="muted">Progress and settings are saved in this browser. PAO list comes from <code>pao.json</code>.
+    <button type="button" id="resetStats" style="padding:2px 8px;font-size:.8rem">Reset stats</button></p>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const FIELDS = ['person', 'action', 'object'];
+
+  // ---------- storage ----------
+  const store = {
+    get(key, def) { try { const v = localStorage.getItem('pao.' + key); return v ? JSON.parse(v) : def; } catch { return def; } },
+    set(key, val) { try { localStorage.setItem('pao.' + key, JSON.stringify(val)); } catch {} }
+  };
+  const DEFAULTS = {
+    p_from: 0, p_to: 99, p_ask: 'all', p_order: 'weak',
+    n_from: 0, n_to: 99, n_show: 'mixed', n_order: 'weak',
+    r_count: 6, r_show: 10, r_wait: 5, tab: 'toPao'
+  };
+  const settings = Object.assign({}, DEFAULTS, store.get('settings', {}));
+  const stats = store.get('stats', { toPao: {}, toNum: {} });
+  let history = store.get('history', []);
+  const saveSettings = () => store.set('settings', settings);
+  const saveStats = () => store.set('stats', stats);
+
+  // ---------- PAO data ----------
+  let pao = {};
+  const has = (n, f) => !!(pao[n] && pao[n][f] && pao[n][f].trim());
+  const complete = n => FIELDS.every(f => has(n, f));
+
+  fetch('pao.json', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(d => { pao = d; afterLoad(); })
+    .catch(() => afterLoad(true));
+
+  function afterLoad(failed) {
+    const filled = [...Array(100).keys()].map(pad).filter(complete).length;
+    const b = $('paoBanner');
+    if (failed) { b.textContent = 'Could not load pao.json (open the page from GitHub Pages or a local web server).'; b.classList.remove('hidden'); }
+    else if (filled < 100) { b.textContent = `pao.json has ${filled}/100 complete entries. PAO → Number only uses complete ones; Number → PAO falls back to self-grading.`; b.classList.remove('hidden'); }
+    nextPao(); nextNum();
+  }
+
+  // ---------- settings inputs ----------
+  for (const k of Object.keys(DEFAULTS)) {
+    const el = $(k); if (!el) continue;
+    el.value = settings[k];
+    el.addEventListener('change', () => {
+      settings[k] = el.type === 'number' ? Number(el.value) : el.value;
+      saveSettings();
+      if (k.startsWith('p_')) nextPao();
+      if (k.startsWith('n_')) nextNum();
+    });
+  }
+
+  // ---------- tabs ----------
+  function showTab(t) {
+    document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+    ['toPao', 'toNum', 'recall'].forEach(s => $(s).classList.toggle('hidden', s !== t));
+    settings.tab = t; saveSettings();
+  }
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  showTab(settings.tab);
+
+  // ---------- helpers ----------
+  function range(from, to) {
+    let a = Math.max(0, Math.min(99, Number(from) || 0)), b = Math.max(0, Math.min(99, Number(to) || 0));
+    if (a > b) [a, b] = [b, a];
+    const out = []; for (let i = a; i <= b; i++) out.push(pad(i)); return out;
+  }
+  function weight(rec) {
+    if (!rec) return 3;                       // never seen: high priority
+    const acc = rec.ok / (rec.ok + rec.bad);
+    return 0.3 + (1 - acc) * 4 + (rec.last === false ? 2 : 0);
+  }
+  function pick(list, mode, statKey, prev) {
+    if (!list.length) return null;
+    if (list.length > 1) list = list.filter(x => x !== prev);
+    if (mode !== 'weak') return list[Math.floor(Math.random() * list.length)];
+    const w = list.map(n => weight(stats[statKey][n]));
+    let r = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < list.length; i++) { r -= w[i]; if (r <= 0) return list[i]; }
+    return list[list.length - 1];
+  }
+  function record(statKey, n, ok) {
+    const s = stats[statKey][n] || (stats[statKey][n] = { ok: 0, bad: 0 });
+    ok ? s.ok++ : s.bad++; s.last = ok; saveStats();
+  }
+  const norm = s => (s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  function matches(given, expected) {
+    const g = norm(given), e = norm(expected);
+    if (!g || !e) return false;
+    if (g === e) return true;
+    const strip = x => x.replace(/^(the|a|an) /, '');
+    return strip(g) === strip(e) || (g.length >= 3 && (e.includes(g) || g.includes(e)));
+  }
+  function renderStats(el, statKey, list) {
+    const recs = list.map(n => [n, stats[statKey][n]]).filter(([, r]) => r);
+    const ok = recs.reduce((a, [, r]) => a + r.ok, 0), bad = recs.reduce((a, [, r]) => a + r.bad, 0);
+    const weak = recs.filter(([, r]) => r.bad > 0)
+      .sort((a, b) => (b[1].bad / (b[1].ok + b[1].bad)) - (a[1].bad / (a[1].ok + a[1].bad)) || b[1].bad - a[1].bad)
+      .slice(0, 8).map(([n]) => `<span class="chip bad">${n}</span>`).join('');
+    el.innerHTML = `<span>Seen <b>${recs.length}/${list.length}</b></span>
+      <span>Answers <b>${ok + bad}</b></span>
+      <span>Accuracy <b>${ok + bad ? Math.round(100 * ok / (ok + bad)) + '%' : '–'}</b></span>
+      ${weak ? `<span>Weakest ${weak}</span>` : ''}`;
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---------- 1. Number -> PAO ----------
+  let pCur = null, pDone = false, pSeq = -1;
+  function pList() { return range(settings.p_from, settings.p_to); }
+  function pFields() { return settings.p_ask === 'all' ? FIELDS : [settings.p_ask]; }
+  function nextPao() {
+    const list = pList();
+    if (settings.p_order === 'seq') { pSeq = (pSeq + 1) % list.length; pCur = list[pSeq]; }
+    else pCur = pick(list, settings.p_order, 'toPao', pCur);
+    pDone = false;
+    $('p_num').textContent = pCur ?? '--';
+    FIELDS.forEach(f => { const el = $('p_' + f); el.value = ''; el.classList.toggle('hidden', !pFields().includes(f)); });
+    $('p_result').innerHTML = ''; $('p_self').classList.add('hidden');
+    $('p_check').disabled = false;
+    $('p_' + pFields()[0]).focus();
+    renderStats($('p_stats'), 'toPao', list);
+  }
+  function answerLine(n) {
+    return FIELDS.map(f => `<b>${f[0].toUpperCase() + f.slice(1)}:</b> ${has(n, f) ? esc(pao[n][f]) : '<span class="muted">—</span>'}`).join(' &nbsp; ');
+  }
+  $('p_form').onsubmit = e => {
+    e.preventDefault();
+    if (pDone) return nextPao();
+    const fs = pFields();
+    if (!fs.every(f => has(pCur, f))) {
+      $('p_result').innerHTML = answerLine(pCur);
+      $('p_self').classList.remove('hidden');
+      return;
+    }
+    const res = fs.map(f => matches($('p_' + f).value, pao[pCur][f]));
+    const ok = res.every(Boolean);
+    record('toPao', pCur, ok); pDone = true; $('p_check').disabled = false;
+    $('p_result').innerHTML = `<div class="${ok ? 'ok' : 'bad'}"><b>${ok ? 'Correct!' : 'Not quite'}</b> ${fs.map((f, i) => `<span class="${res[i] ? 'ok' : 'bad'}">${res[i] ? '✓' : '✗'} ${f}</span>`).join(' ')}</div>${answerLine(pCur)}<div class="muted">Enter for next</div>`;
+    renderStats($('p_stats'), 'toPao', pList());
+  };
+  $('p_reveal').onclick = () => {
+    if (!pDone) {
+      if (pFields().every(f => has(pCur, f))) record('toPao', pCur, false);
+      pDone = true;
+    }
+    $('p_result').innerHTML = answerLine(pCur) + '<div class="muted">Enter for next</div>';
+    renderStats($('p_stats'), 'toPao', pList());
+  };
+  $('p_self').onclick = e => {
+    const v = e.target.dataset.self; if (v === undefined) return;
+    record('toPao', pCur, v === '1'); nextPao();
+  };
+  $('p_next').onclick = nextPao;
+
+  // ---------- 2. PAO -> Number ----------
+  let nCur = null, nDone = false;
+  function nList() { return range(settings.n_from, settings.n_to).filter(complete); }
+  function nextNum() {
+    const list = nList();
+    nDone = false; $('n_answer').value = ''; $('n_result').innerHTML = '';
+    if (!list.length) { nCur = null; $('n_cue').innerHTML = '<span class="muted">No complete PAO entries in this range. Fill in pao.json.</span>'; renderStats($('n_stats'), 'toNum', []); return; }
+    if (settings.n_show === 'triple') {
+      const nums = [pick(list, settings.n_order, 'toNum'), pick(list, settings.n_order, 'toNum'), pick(list, settings.n_order, 'toNum')];
+      nCur = { nums, fields: FIELDS };
+      $('n_cue').innerHTML = `${esc(pao[nums[0]].person)} · ${esc(pao[nums[1]].action)} · ${esc(pao[nums[2]].object)}<small>person · action · object — 6 digits</small>`;
+    } else {
+      const f = settings.n_show === 'mixed' ? FIELDS[Math.floor(Math.random() * 3)] : settings.n_show;
+      const n = pick(list, settings.n_order, 'toNum', nCur && nCur.nums[0]);
+      nCur = { nums: [n], fields: [f] };
+      $('n_cue').innerHTML = `${esc(pao[n][f])}<small>${f}</small>`;
+    }
+    $('n_answer').focus();
+    renderStats($('n_stats'), 'toNum', range(settings.n_from, settings.n_to).filter(complete));
+  }
+  $('n_form').onsubmit = e => {
+    e.preventDefault();
+    if (nDone || !nCur) return nextNum();
+    const digits = $('n_answer').value.replace(/\D/g, '');
+    const parts = nCur.nums.length === 1 ? [digits.padStart(2, '0')] : (digits.match(/\d{1,2}/g) || []);
+    const res = nCur.nums.map((n, i) => parts[i] === n);
+    res.forEach((ok, i) => record('toNum', nCur.nums[i], ok));
+    const ok = res.every(Boolean); nDone = true;
+    const detail = nCur.nums.map((n, i) => `<span class="chip ${res[i] ? 'ok' : 'bad'}">${n}</span> ${esc(pao[n][nCur.fields[i]])}`).join(' &nbsp; ');
+    $('n_result').innerHTML = `<div class="${ok ? 'ok' : 'bad'}"><b>${ok ? 'Correct!' : 'Answer:'}</b></div>${detail}<div class="muted">Enter for next</div>`;
+    renderStats($('n_stats'), 'toNum', range(settings.n_from, settings.n_to).filter(complete));
+  };
+  $('n_next').onclick = nextNum;
+
+  // ---------- 3. Memorize ----------
+  let rTimer = null, rPairs = [];
+  function countdown(sec, label, done) {
+    clearInterval(rTimer);
+    const end = Date.now() + sec * 1000;
+    const tick = () => {
+      const left = Math.max(0, end - Date.now());
+      $('r_countdown').textContent = `${label} ${(left / 1000).toFixed(1)}s`;
+      if (left <= 0) { clearInterval(rTimer); done(); }
+    };
+    tick(); rTimer = setInterval(tick, 100);
+  }
+  $('r_start').onclick = () => {
+    const count = Math.max(1, Math.min(50, settings.r_count || 6));
+    rPairs = Array.from({ length: count }, () => pad(Math.floor(Math.random() * 100)));
+    $('r_stage').classList.remove('hidden'); $('r_form').classList.add('hidden');
+    $('r_result').innerHTML = ''; $('r_answer').value = '';
+    $('r_pairs').innerHTML = rPairs.map(p => `<span>${p}</span>`).join('');
+    $('r_start').disabled = true;
+    countdown(settings.r_show, 'Memorize', () => {
+      $('r_pairs').innerHTML = '';
+      countdown(settings.r_wait, 'Wait', () => {
+        $('r_countdown').textContent = 'Now type them';
+        $('r_form').classList.remove('hidden'); $('r_answer').focus();
+      });
+    });
+  };
+  $('r_form').onsubmit = e => {
+    e.preventDefault();
+    const raw = $('r_answer').value.trim();
+    const parts = /\s|,/.test(raw) ? raw.split(/[\s,]+/).filter(Boolean).map(p => p.replace(/\D/g, '').padStart(2, '0')) : (raw.replace(/\D/g, '').match(/\d{1,2}/g) || []);
+    const res = rPairs.map((p, i) => parts[i] === p);
+    const score = res.filter(Boolean).length;
+    $('r_result').innerHTML = `<div class="${score === rPairs.length ? 'ok' : score ? 'warn' : 'bad'}"><b>${score}/${rPairs.length}</b></div>` +
+      rPairs.map((p, i) => `<span class="chip ${res[i] ? 'ok' : 'bad'}" title="you: ${esc(parts[i] || '—')}">${p}${res[i] ? '' : ` <small>(${esc(parts[i] || '—')})</small>`}</span>`).join('');
+    $('r_form').classList.add('hidden'); $('r_countdown').textContent = '';
+    $('r_start').disabled = false; $('r_start').focus();
+    history.unshift({ t: Date.now(), n: rPairs.length, show: settings.r_show, wait: settings.r_wait, score });
+    history = history.slice(0, 200); store.set('history', history);
+    renderHistory();
+  };
+  function renderHistory() {
+    const tot = history.reduce((a, h) => a + h.n, 0), ok = history.reduce((a, h) => a + h.score, 0);
+    const best = history.filter(h => h.score === h.n).reduce((m, h) => Math.max(m, h.n), 0);
+    $('r_stats').innerHTML = `<span>Rounds <b>${history.length}</b></span><span>Accuracy <b>${tot ? Math.round(100 * ok / tot) + '%' : '–'}</b></span><span>Longest perfect <b>${best || '–'}</b> pairs</span>`;
+    $('r_history').innerHTML = history.length ? '<tr><th>When</th><th>Pairs</th><th>Show</th><th>Wait</th><th>Score</th></tr>' +
+      history.slice(0, 15).map(h => `<tr><td>${new Date(h.t).toLocaleString()}</td><td>${h.n}</td><td>${h.show}s</td><td>${h.wait}s</td><td>${h.score}/${h.n}</td></tr>`).join('') : '';
+  }
+  $('r_clear').onclick = () => { if (confirm('Clear memorize history?')) { history = []; store.set('history', history); renderHistory(); } };
+  renderHistory();
+
+  $('resetStats').onclick = () => {
+    if (!confirm('Reset all Number ↔ PAO stats?')) return;
+    stats.toPao = {}; stats.toNum = {}; saveStats(); nextPao(); nextNum();
+  };
+})();
+</script>
+</body>
+</html>
