@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>List Memory Training</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #fff; --text: #1d2130; --muted: #6b7185; --line: #e2e5ee;
+    --accent: #4f5bd5; --accent-text: #fff; --ok: #1f9d55; --bad: #d64545; --warn: #c98a12;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141c; --card: #1b1e29; --text: #e8eaf2; --muted: #9aa0b5; --line: #2c3040;
+      --accent: #7c86ff; --accent-text: #0e1020; --ok: #4ccb84; --bad: #ff6b6b; --warn: #f0b440;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.5rem; margin: 8px 0 16px; }
+  .pages { display: flex; gap: 6px; margin-bottom: 16px; }
+  .pages a { flex: 1; text-align: center; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line);
+             background: var(--card); color: var(--text); text-decoration: none; }
+  .pages a.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--card); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+                  background: var(--bg); color: var(--text); width: 100%; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  .row > label { flex: 1; min-width: 130px; font-size: .85rem; color: var(--muted); }
+  .row > label.check { display: flex; gap: 6px; align-items: center; color: var(--text); font-size: .95rem; min-width: 180px; }
+  .row > label.check input { width: auto; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .stats { display: flex; gap: 16px; flex-wrap: wrap; font-size: .9rem; color: var(--muted); }
+  .stats b { color: var(--text); }
+  .countdown { text-align: center; font-size: 1.2rem; color: var(--muted); margin-bottom: 8px; }
+  .level { text-align: center; font-size: 1.1rem; margin-bottom: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .tile { position: relative; border: 1px solid var(--line); border-radius: 10px; padding: 10px 6px 8px; text-align: center;
+          background: var(--bg); min-height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .tile .num { position: absolute; top: 4px; left: 8px; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tile .emoji { font-size: 2.2rem; line-height: 1.1; }
+  .tile .name { font-size: .95rem; }
+  .tile.pick { cursor: pointer; }
+  .tile.pick:hover { border-color: var(--accent); }
+  .tile.used { opacity: .25; cursor: default; }
+  .tile.slot { border-style: dashed; cursor: pointer; }
+  .tile.slot.filled { border-style: solid; }
+  .tile.slot.next { border-color: var(--accent); border-width: 2px; }
+  .tile.right { border-color: var(--ok); border-width: 2px; }
+  .tile.wrong { border-color: var(--bad); border-width: 2px; }
+  .tile .should { font-size: .75rem; color: var(--bad); }
+  h3 { margin: 16px 0 8px; font-size: 1rem; color: var(--muted); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .hidden { display: none !important; }
+</style>
+<link rel="stylesheet" href="fun.css">
+<script src="fun.js" defer></script>
+</head>
+<body>
+<main>
+  <h1>List Memory Training</h1>
+  <div class="pages"><a href="index.html">PAO</a><a href="list.html" class="active">Lists (1–30)</a></div>
+
+  <div class="card">
+    <div class="row">
+      <label>Items <input id="count" type="number" min="1" max="30"></label>
+      <label>Memorize time (sec) <input id="time" type="number" min="1" max="1800" step="0.5"></label>
+      <label>Time is
+        <select id="timeMode"><option value="per">per item</option><option value="total">total</option></select>
+      </label>
+      <label>Show
+        <select id="show"><option value="both">Image + name</option><option value="image">Image only</option><option value="name">Name only</option></select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="check"><input type="checkbox" id="grow"> Grow: +1 item after a perfect round</label>
+      <label class="check"><input type="checkbox" id="shrink"> Shrink: −1 item after 2 failed rounds</label>
+    </div>
+    <div class="actions">
+      <button class="primary" id="start">Start</button>
+      <button id="done" class="hidden">I'm ready</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="stage">
+    <div class="level" id="levelLine"></div>
+    <div class="countdown" id="countdown"></div>
+    <div class="grid" id="memo"></div>
+
+    <div id="order" class="hidden">
+      <div class="muted">Click the items in the order you memorized them. Click a filled slot to take it back.</div>
+      <h3>Your order</h3>
+      <div class="grid" id="slots"></div>
+      <h3>Items</h3>
+      <div class="grid" id="pool"></div>
+      <div class="actions">
+        <button class="primary" id="check" disabled>Check</button>
+        <button id="clearOrder">Clear</button>
+      </div>
+    </div>
+    <div id="result" class="actions"></div>
+  </div>
+
+  <div class="card">
+    <div class="stats" id="stats"></div>
+    <table id="history"></table>
+    <div class="actions"><button id="clearHist">Clear history</button></div>
+  </div>
+  <p class="muted">Settings and progress are saved in this browser.</p>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const ITEMS = [
+    ['🍎','apple'],['🍌','banana'],['🍇','grapes'],['🍉','watermelon'],['🍋','lemon'],['🍓','strawberry'],['🍍','pineapple'],['🥕','carrot'],
+    ['🌽','corn'],['🥦','broccoli'],['🍄','mushroom'],['🥜','peanut'],['🍞','bread'],['🧀','cheese'],['🥚','egg'],['🍕','pizza'],
+    ['🍔','burger'],['🌭','hot dog'],['🍿','popcorn'],['🍩','donut'],['🍪','cookie'],['🎂','cake'],['🍫','chocolate'],['🍦','ice cream'],
+    ['☕','coffee'],['🍵','tea'],['🍷','wine'],['🍺','beer'],['🥛','milk'],['🧂','salt'],['🐶','dog'],['🐱','cat'],
+    ['🐭','mouse'],['🐰','rabbit'],['🦊','fox'],['🐻','bear'],['🐼','panda'],['🐨','koala'],['🐯','tiger'],['🦁','lion'],
+    ['🐮','cow'],['🐷','pig'],['🐸','frog'],['🐵','monkey'],['🐔','chicken'],['🐧','penguin'],['🦉','owl'],['🦆','duck'],
+    ['🦅','eagle'],['🐝','bee'],['🦋','butterfly'],['🐌','snail'],['🐢','turtle'],['🐍','snake'],['🦖','dinosaur'],['🐙','octopus'],
+    ['🦀','crab'],['🐠','fish'],['🐬','dolphin'],['🐳','whale'],['🦈','shark'],['🐊','crocodile'],['🦒','giraffe'],['🐘','elephant'],
+    ['🦓','zebra'],['🐪','camel'],['🦘','kangaroo'],['🐎','horse'],['🦄','unicorn'],['🌹','rose'],['🌻','sunflower'],['🌵','cactus'],
+    ['🌲','pine tree'],['🍁','maple leaf'],['🌈','rainbow'],['☀️','sun'],['🌙','moon'],['⭐','star'],['⚡','lightning'],['❄️','snowflake'],
+    ['🔥','fire'],['💧','water drop'],['🌋','volcano'],['🏔️','mountain'],['🏝️','island'],['🏠','house'],['🏰','castle'],['⛪','church'],
+    ['🗽','statue'],['🗼','tower'],['⛺','tent'],['🚗','car'],['🚕','taxi'],['🚌','bus'],['🚑','ambulance'],['🚒','fire truck'],
+    ['🚜','tractor'],['🚲','bicycle'],['🛵','scooter'],['🚂','train'],['✈️','airplane'],['🚁','helicopter'],['🚀','rocket'],['⛵','sailboat'],
+    ['⚓','anchor'],['🎈','balloon'],['🎁','gift'],['🎃','pumpkin'],['🎄','christmas tree'],['🕯️','candle'],['💡','light bulb'],['🔦','flashlight'],
+    ['📱','phone'],['💻','laptop'],['⌚','watch'],['📷','camera'],['📺','television'],['📻','radio'],['☎️','telephone'],['⏰','alarm clock'],
+    ['🔑','key'],['🔒','lock'],['🔨','hammer'],['🪓','axe'],['🔧','wrench'],['🪚','saw'],['✂️','scissors'],['📌','pin'],
+    ['📎','paperclip'],['✏️','pencil'],['🖌️','paintbrush'],['📚','books'],['📖','book'],['✉️','envelope'],['📦','box'],['🗑️','trash can'],
+    ['🧲','magnet'],['🔭','telescope'],['🔬','microscope'],['💊','pill'],['💉','syringe'],['🩹','bandage'],['🧸','teddy bear'],['🪁','kite'],
+    ['⚽','soccer ball'],['🏀','basketball'],['🎾','tennis ball'],['🎳','bowling'],['🥊','boxing glove'],['🎯','target'],['🎲','dice'],['🧩','puzzle'],
+    ['🎸','guitar'],['🎹','piano'],['🥁','drum'],['🎺','trumpet'],['🎻','violin'],['🎤','microphone'],['🎧','headphones'],['🎩','top hat'],
+    ['👑','crown'],['👓','glasses'],['👟','sneaker'],['👢','boot'],['🧤','gloves'],['🧣','scarf'],['👗','dress'],['👕','t-shirt'],
+    ['🎒','backpack'],['👜','handbag'],['☂️','umbrella'],['💍','ring'],['💎','diamond'],['🪙','coin'],['💰','money bag'],['🧭','compass'],
+    ['🗺️','map'],['⏳','hourglass'],['🛏️','bed'],['🪑','chair'],['🚪','door'],['🪟','window'],['🛁','bathtub'],['🚽','toilet'],
+    ['🧹','broom'],['🧺','basket'],['🧼','soap'],['🪥','toothbrush'],['🪞','mirror'],['🔔','bell'],['🏆','trophy'],['🎨','palette'],
+    ['🪐','planet'],['🛸','ufo'],['🤖','robot'],['👻','ghost'],['💀','skull'],['🦴','bone'],['🧠','brain'],['❤️','heart']
+  ];
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('list.' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('list.' + k, JSON.stringify(v)); } catch {} }
+  };
+  const DEFAULTS = { count: 1, time: 4, timeMode: 'per', show: 'both', grow: true, shrink: false, fails: 0 };
+  const s = Object.assign({}, DEFAULTS, store.get('settings', {}));
+  let history = store.get('history', []);
+  const save = () => store.set('settings', s);
+
+  for (const k of ['count', 'time', 'timeMode', 'show', 'grow', 'shrink']) {
+    const el = $(k);
+    if (el.type === 'checkbox') el.checked = s[k]; else el.value = s[k];
+    el.addEventListener('change', () => {
+      s[k] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+      if (k === 'count') { s.count = clampCount(s.count); el.value = s.count; s.fails = 0; }
+      save();
+    });
+  }
+  function clampCount(n) { return Math.max(1, Math.min(30, Math.round(n) || 1)); }
+
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const tileHTML = (it, num, extra = '') => `
+    ${num != null ? `<span class="num">${num}</span>` : ''}
+    ${s.show !== 'name' ? `<span class="emoji">${it[0]}</span>` : ''}
+    ${s.show !== 'image' ? `<span class="name">${it[1]}</span>` : ''}${extra}`;
+
+  let list = [], placed = [], timer = null, startedAt = 0, memoMs = 0;
+
+  function countdown(sec, done) {
+    clearInterval(timer);
+    const end = Date.now() + sec * 1000;
+    const tick = () => {
+      const left = Math.max(0, end - Date.now());
+      $('countdown').textContent = `Memorize ${(left / 1000).toFixed(1)}s`;
+      if (left <= 0) { clearInterval(timer); done(); }
+    };
+    tick(); timer = setInterval(tick, 100);
+  }
+
+  $('start').onclick = () => {
+    s.count = clampCount(s.count); $('count').value = s.count;
+    list = shuffle(ITEMS).slice(0, s.count);
+    placed = [];
+    $('stage').classList.remove('hidden');
+    $('order').classList.add('hidden'); $('result').innerHTML = '';
+    $('levelLine').textContent = `${s.count} item${s.count > 1 ? 's' : ''}`;
+    $('memo').classList.remove('hidden');
+    $('memo').innerHTML = list.map((it, i) => `<div class="tile">${tileHTML(it, i + 1)}</div>`).join('');
+    $('start').disabled = true; $('done').classList.remove('hidden');
+    const sec = s.timeMode === 'per' ? s.time * s.count : s.time;
+    startedAt = Date.now();
+    countdown(sec, beginOrder);
+    $('stage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  $('done').onclick = () => { clearInterval(timer); beginOrder(); };
+
+  function beginOrder() {
+    memoMs = Date.now() - startedAt;
+    $('done').classList.add('hidden');
+    $('countdown').textContent = '';
+    $('memo').classList.add('hidden'); $('memo').innerHTML = '';
+    $('order').classList.remove('hidden');
+    pool = shuffle(list.map((_, i) => i));
+    if (list.length > 1) while (pool.every((v, i) => v === i)) pool = shuffle(pool);
+    renderOrder();
+  }
+  let pool = [];
+  function renderOrder() {
+    const next = placed.length;
+    $('slots').innerHTML = list.map((_, i) => {
+      const idx = placed[i];
+      return idx == null
+        ? `<div class="tile slot${i === next ? ' next' : ''}"><span class="num">${i + 1}</span></div>`
+        : `<div class="tile slot filled" data-slot="${i}">${tileHTML(list[idx], i + 1)}</div>`;
+    }).join('');
+    $('pool').innerHTML = pool.map(idx =>
+      `<div class="tile pick${placed.includes(idx) ? ' used' : ''}" data-idx="${idx}">${tileHTML(list[idx])}</div>`).join('');
+    $('check').disabled = placed.length !== list.length;
+  }
+  $('pool').onclick = e => {
+    const t = e.target.closest('[data-idx]'); if (!t) return;
+    const idx = +t.dataset.idx; if (placed.includes(idx)) return;
+    placed.push(idx); renderOrder();
+    if (placed.length === list.length) $('check').focus();
+  };
+  $('slots').onclick = e => {
+    const t = e.target.closest('[data-slot]'); if (!t) return;
+    placed.splice(+t.dataset.slot, 1); renderOrder();
+  };
+  $('clearOrder').onclick = () => { placed = []; renderOrder(); };
+
+  $('check').onclick = () => {
+    const res = placed.map((idx, i) => idx === i);
+    const score = res.filter(Boolean).length, n = list.length, perfect = score === n;
+    $('slots').innerHTML = placed.map((idx, i) => `<div class="tile ${res[i] ? 'right' : 'wrong'}">${tileHTML(list[idx], i + 1, res[i] ? '' : `<span class="should">should be: ${list[i][1]}</span>`)}</div>`).join('');
+    $('pool').innerHTML = ''; $('order').querySelectorAll('h3')[1].classList.add('hidden');
+    $('check').disabled = true;
+
+    perfect ? window.fun?.cheer(n >= 5) : window.fun?.oops($('slots'));
+    let msg = '';
+    if (perfect) {
+      s.fails = 0;
+      if (s.grow && s.count < 30) { s.count++; msg = ` Next round: ${s.count} items.`; }
+      else if (s.count === 30) msg = ' 30/30 — full list mastered!';
+    } else {
+      s.fails = (s.fails || 0) + 1;
+      if (s.shrink && s.fails >= 2 && s.count > 1) { s.count--; s.fails = 0; msg = ` Next round: ${s.count} items.`; }
+    }
+    $('count').value = s.count; save();
+    $('result').innerHTML = `<b class="${perfect ? 'ok' : score ? 'warn' : 'bad'}">${score}/${n}</b><span class="muted">${msg}</span><button class="primary" id="again">Next round</button>`;
+    $('again').onclick = () => { $('order').querySelectorAll('h3')[1].classList.remove('hidden'); $('start').click(); };
+    $('again').focus();
+    $('start').disabled = false;
+
+    history.unshift({ t: Date.now(), n, score, sec: Math.round(memoMs / 100) / 10 });
+    history = history.slice(0, 300); store.set('history', history);
+    renderHistory();
+  };
+
+  function renderHistory() {
+    const best = history.filter(h => h.score === h.n).reduce((m, h) => Math.max(m, h.n), 0);
+    const tot = history.reduce((a, h) => a + h.n, 0), ok = history.reduce((a, h) => a + h.score, 0);
+    $('stats').innerHTML = `<span>Rounds <b>${history.length}</b></span><span>Accuracy <b>${tot ? Math.round(100 * ok / tot) + '%' : '–'}</b></span><span>Longest perfect list <b>${best || '–'}</b></span>`;
+    $('history').innerHTML = history.length ? '<tr><th>When</th><th>Items</th><th>Memorize time</th><th>Score</th></tr>' +
+      history.slice(0, 15).map(h => `<tr><td>${new Date(h.t).toLocaleString()}</td><td>${h.n}</td><td>${h.sec}s</td><td>${h.score}/${h.n}</td></tr>`).join('') : '';
+  }
+  $('clearHist').onclick = () => { if (confirm('Clear history?')) { history = []; store.set('history', history); renderHistory(); } };
+  renderHistory();
+})();
+</script>
+</body>
+</html>
