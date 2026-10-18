@@ -162,6 +162,7 @@
     <div class="card hidden" id="r_stage">
       <div class="pairs" id="r_pairs"></div>
       <div class="countdown" id="r_countdown"></div>
+      <div class="actions hidden" id="r_skipRow" style="justify-content:center"><button type="button" id="r_skip">Skip ⏭</button></div>
       <form id="r_form" class="hidden">
         <input id="r_answer" inputmode="numeric" autocomplete="off" placeholder="Type the pairs, e.g. 07 42 19 or 074219">
         <div class="actions"><button class="primary" type="submit">Check</button></div>
@@ -370,24 +371,26 @@
   $('n_next').onclick = nextNum;
 
   // ---------- 3. Memorize ----------
-  let rTimer = null, rPairs = [];
+  let rTimer = null, rPairs = [], rFinish = null;
   function countdown(sec, label, done) {
     clearInterval(rTimer);
     const end = Date.now() + sec * 1000;
+    rFinish = () => { clearInterval(rTimer); rFinish = null; $('r_skipRow').classList.add('hidden'); done(); };
+    $('r_skipRow').classList.remove('hidden');
     const tick = () => {
       const left = Math.max(0, end - Date.now());
       $('r_countdown').textContent = `${label} ${(left / 1000).toFixed(1)}s`;
-      if (left <= 0) { clearInterval(rTimer); done(); }
+      if (left <= 0) rFinish();
     };
     tick(); rTimer = setInterval(tick, 100);
   }
+  $('r_skip').onclick = () => rFinish && rFinish();
   $('r_start').onclick = () => {
     const count = Math.max(1, Math.min(50, settings.r_count || 6));
     rPairs = Array.from({ length: count }, () => pad(Math.floor(Math.random() * 100)));
     $('r_stage').classList.remove('hidden'); $('r_form').classList.add('hidden');
     $('r_result').innerHTML = ''; $('r_answer').value = '';
     $('r_pairs').innerHTML = rPairs.map(p => `<span>${p}</span>`).join('');
-    $('r_start').disabled = true;
     countdown(settings.r_show, 'Memorize', () => {
       $('r_pairs').innerHTML = '';
       countdown(settings.r_wait, 'Wait', () => {
@@ -406,7 +409,7 @@
     $('r_result').innerHTML = `<div class="${score === rPairs.length ? 'ok' : score ? 'warn' : 'bad'}"><b>${score}/${rPairs.length}</b></div>` +
       rPairs.map((p, i) => `<span class="chip ${res[i] ? 'ok' : 'bad'}" title="you: ${esc(parts[i] || '—')}">${p}${res[i] ? '' : ` <small>(${esc(parts[i] || '—')})</small>`}</span>`).join('');
     $('r_form').classList.add('hidden'); $('r_countdown').textContent = '';
-    $('r_start').disabled = false; $('r_start').focus();
+    $('r_start').focus();
     history.unshift({ t: Date.now(), n: rPairs.length, show: settings.r_show, wait: settings.r_wait, score });
     history = history.slice(0, 200); store.set('history', history);
     renderHistory();
